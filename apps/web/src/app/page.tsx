@@ -1,169 +1,178 @@
 "use client";
-import { useMiniApp } from "@/contexts/miniapp-context";
-import { sdk } from "@farcaster/frame-sdk";
-import { useState, useEffect } from "react";
-import { useAccount, useConnect } from "wagmi";
+
+import { useState } from "react";
+
+// Mock country data with registration counts
+const INITIAL_COUNTRIES = [
+  { code: "US", name: "United States", flag: "🇺🇸", registrations: 1247 },
+  { code: "BR", name: "Brazil", flag: "🇧🇷", registrations: 892 },
+  { code: "IN", name: "India", flag: "🇮🇳", registrations: 756 },
+  { code: "GB", name: "United Kingdom", flag: "🇬🇧", registrations: 634 },
+  { code: "NG", name: "Nigeria", flag: "🇳🇬", registrations: 521 },
+  { code: "MX", name: "Mexico", flag: "🇲🇽", registrations: 487 },
+  { code: "DE", name: "Germany", flag: "🇩🇪", registrations: 423 },
+  { code: "FR", name: "France", flag: "🇫🇷", registrations: 389 },
+  { code: "JP", name: "Japan", flag: "🇯🇵", registrations: 312 },
+  { code: "CA", name: "Canada", flag: "🇨🇦", registrations: 298 },
+];
+
+// All available countries for selection
+const ALL_COUNTRIES = [
+  { code: "US", name: "United States", flag: "🇺🇸" },
+  { code: "BR", name: "Brazil", flag: "🇧🇷" },
+  { code: "IN", name: "India", flag: "🇮🇳" },
+  { code: "GB", name: "United Kingdom", flag: "🇬🇧" },
+  { code: "NG", name: "Nigeria", flag: "🇳🇬" },
+  { code: "MX", name: "Mexico", flag: "🇲🇽" },
+  { code: "DE", name: "Germany", flag: "🇩🇪" },
+  { code: "FR", name: "France", flag: "🇫🇷" },
+  { code: "JP", name: "Japan", flag: "🇯🇵" },
+  { code: "CA", name: "Canada", flag: "🇨🇦" },
+  { code: "AU", name: "Australia", flag: "🇦🇺" },
+  { code: "ZA", name: "South Africa", flag: "🇿🇦" },
+  { code: "AR", name: "Argentina", flag: "🇦🇷" },
+  { code: "ES", name: "Spain", flag: "🇪🇸" },
+  { code: "IT", name: "Italy", flag: "🇮🇹" },
+  { code: "KR", name: "South Korea", flag: "🇰🇷" },
+  { code: "CN", name: "China", flag: "🇨🇳" },
+  { code: "RU", name: "Russia", flag: "🇷🇺" },
+  { code: "PH", name: "Philippines", flag: "🇵🇭" },
+  { code: "ID", name: "Indonesia", flag: "🇮🇩" },
+];
 
 export default function Home() {
-  const { context, isMiniAppReady } = useMiniApp();
-  const [isAddingMiniApp, setIsAddingMiniApp] = useState(false);
-  const [addMiniAppMessage, setAddMiniAppMessage] = useState<string | null>(null);
-  
-  // Wallet connection hooks
-  const { address, isConnected, isConnecting } = useAccount();
-  const { connect, connectors } = useConnect();
-  
-  // Auto-connect wallet when miniapp is ready
-  useEffect(() => {
-    if (isMiniAppReady && !isConnected && !isConnecting && connectors.length > 0) {
-      const farcasterConnector = connectors.find(c => c.id === 'farcaster');
-      if (farcasterConnector) {
-        connect({ connector: farcasterConnector });
+  const [countries, setCountries] = useState(INITIAL_COUNTRIES);
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [showSelector, setShowSelector] = useState(false);
+
+  const handleRegister = (countryCode: string) => {
+    const country = ALL_COUNTRIES.find(c => c.code === countryCode);
+    if (!country) return;
+
+    setIsRegistered(true);
+    setSelectedCountry(countryCode);
+    setShowSelector(false);
+
+    // Update or add country to leaderboard
+    setCountries(prev => {
+      const existing = prev.find(c => c.code === countryCode);
+      if (existing) {
+        return prev
+          .map(c => c.code === countryCode ? { ...c, registrations: c.registrations + 1 } : c)
+          .sort((a, b) => b.registrations - a.registrations);
+      } else {
+        const newCountry = { ...country, registrations: 1 };
+        return [...prev, newCountry].sort((a, b) => b.registrations - a.registrations);
       }
-    }
-  }, [isMiniAppReady, isConnected, isConnecting, connectors, connect]);
-  
-  // Extract user data from context
-  const user = context?.user;
-  // Use connected wallet address if available, otherwise fall back to user custody/verification
-  const walletAddress = address || user?.custody || user?.verifications?.[0] || "0x1e4B...605B";
-  const displayName = user?.displayName || user?.username || "User";
-  const username = user?.username || "@user";
-  const pfpUrl = user?.pfpUrl;
-  
-  // Format wallet address to show first 6 and last 4 characters
-  const formatAddress = (address: string) => {
-    if (!address || address.length < 10) return address;
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    });
   };
-  
-  if (!isMiniAppReady) {
-    return (
-      <main className="flex-1">
-        <section className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-          <div className="w-full max-w-md mx-auto p-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading...</p>
-          </div>
-        </section>
-      </main>
-    );
-  }
-  
+
   return (
-    <main className="flex-1">
-      <section className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="w-full max-w-md mx-auto p-8 text-center">
-          {/* Welcome Header */}
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Welcome
+    <main className="min-h-screen bg-celo-tan-light pb-20">
+      {/* Hero Section */}
+      <section className="bg-celo-purple text-white px-4 sm:px-6 py-12 sm:py-16">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="font-serif text-5xl sm:text-7xl md:text-8xl leading-[0.9] tracking-tight mb-6">
+            <span className="block">SELF</span>
+            <span className="block italic">OLYMPICS</span>
           </h1>
-          
-          {/* Status Message */}
-          <p className="text-lg text-gray-600 mb-6">
-            You are signed in!
+          <p className="font-sans text-base sm:text-lg font-medium text-celo-tan-dark max-w-2xl">
+            Which country will have the most humans? Register your nationality and help your country climb the leaderboard.
           </p>
-          
-          {/* User Wallet Address */}
-          <div className="mb-8">
-            <div className="bg-white/20 backdrop-blur-sm px-4 py-3 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-gray-600 font-medium">Wallet Status</span>
-                <div className={`flex items-center gap-1 text-xs ${
-                  isConnected ? 'text-green-600' : isConnecting ? 'text-yellow-600' : 'text-gray-500'
-                }`}>
-                  <div className={`w-2 h-2 rounded-full ${
-                    isConnected ? 'bg-green-500' : isConnecting ? 'bg-yellow-500' : 'bg-gray-400'
-                  }`}></div>
-                  {isConnected ? 'Connected' : isConnecting ? 'Connecting...' : 'Disconnected'}
-                </div>
-              </div>
-              <p className="text-sm text-gray-700 font-mono">
-                {formatAddress(walletAddress)}
-              </p>
-            </div>
-          </div>
-          
-          {/* User Profile Section */}
-          <div className="mb-8">
-            {/* Profile Avatar */}
-            <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center overflow-hidden">
-              {pfpUrl ? (
-                <img 
-                  src={pfpUrl} 
-                  alt="Profile" 
-                  className="w-full h-full object-cover rounded-full"
-                />
-              ) : (
-                <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center">
-                  <div className="w-3 h-3 bg-green-400 rounded-full"></div>
-                </div>
-              )}
-            </div>
-            
-            {/* Profile Info */}
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-1">
-                {displayName}
-              </h2>
-              <p className="text-gray-500">
-                {username.startsWith('@') ? username : `@${username}`}
-              </p>
-            </div>
-          </div>
-          
-          {/* Add Miniapp Button */}
-          <div className="mb-6">
-            <button
-              onClick={async () => {
-                if (isAddingMiniApp) return;
-                
-                setIsAddingMiniApp(true);
-                setAddMiniAppMessage(null);
-                
-                try {
-                  const result = await sdk.actions.addMiniApp();
-                  if (result.added) {
-                    setAddMiniAppMessage("✅ Miniapp added successfully!");
-                  } else {
-                    setAddMiniAppMessage("ℹ️ Miniapp was not added (user declined or already exists)");
-                  }
-                } catch (error: any) {
-                  console.error('Add miniapp error:', error);
-                  if (error?.message?.includes('domain')) {
-                    setAddMiniAppMessage("⚠️ This miniapp can only be added from its official domain");
-                  } else {
-                    setAddMiniAppMessage("❌ Failed to add miniapp. Please try again.");
-                  }
-                } finally {
-                  setIsAddingMiniApp(false);
-                }
-              }}
-              disabled={isAddingMiniApp}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
-            >
-              {isAddingMiniApp ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Adding...
-                </>
-              ) : (
-                <>
-                  <span>📱</span>
-                  Add Miniapp
-                </>
-              )}
-            </button>
-            
-            {/* Add Miniapp Status Message */}
-            {addMiniAppMessage && (
-              <div className="mt-3 p-3 bg-white/30 backdrop-blur-sm rounded-lg">
-                <p className="text-sm text-gray-700">{addMiniAppMessage}</p>
-              </div>
-            )}
-          </div>
         </div>
       </section>
+
+      {/* Register Button Section */}
+      <section className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+        <button
+          onClick={() => !isRegistered && setShowSelector(true)}
+          disabled={isRegistered}
+          className={`w-full py-6 sm:py-8 text-xl sm:text-2xl font-sans font-bold tracking-tight transition-all border-4 ${
+            isRegistered
+              ? 'bg-celo-forest text-white border-celo-forest cursor-not-allowed'
+              : 'bg-celo-yellow text-black border-black hover:bg-black hover:text-celo-yellow hover:border-celo-yellow'
+          }`}
+        >
+          {isRegistered ? '✓ REGISTERED' : 'REGISTER YOUR NATIONALITY'}
+        </button>
+      </section>
+
+      {/* Leaderboard Section */}
+      <section className="max-w-4xl mx-auto px-4 sm:px-6">
+        <div className="mb-8">
+          <h2 className="font-serif text-4xl sm:text-6xl leading-tight tracking-tight mb-2">
+            Country <span className="italic">Leaderboard</span>
+          </h2>
+          <div className="h-1 w-24 bg-black"></div>
+        </div>
+
+        <div className="space-y-0 border-4 border-black">
+          {countries.map((country, index) => (
+            <div
+              key={country.code}
+              className={`flex items-center justify-between p-4 sm:p-6 border-b-4 border-black last:border-b-0 transition-colors ${
+                selectedCountry === country.code
+                  ? 'bg-celo-yellow'
+                  : index % 2 === 0
+                  ? 'bg-white'
+                  : 'bg-celo-tan-dark'
+              }`}
+            >
+              <div className="flex items-center gap-3 sm:gap-6 flex-1 min-w-0">
+                <div className="text-3xl sm:text-4xl font-sans font-black w-12 sm:w-16 flex-shrink-0">
+                  {index + 1}
+                </div>
+                <div className="text-3xl sm:text-4xl flex-shrink-0">
+                  {country.flag}
+                </div>
+                <div className="font-sans text-base sm:text-xl font-bold uppercase tracking-tight truncate">
+                  {country.name}
+                </div>
+              </div>
+              <div className="text-2xl sm:text-4xl font-sans font-black flex-shrink-0 ml-4">
+                {country.registrations.toLocaleString()}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Country Selector Modal */}
+      {showSelector && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-celo-tan-light w-full sm:max-w-2xl max-h-[80vh] sm:max-h-[70vh] flex flex-col border-4 border-black sm:rounded-none">
+            {/* Header */}
+            <div className="bg-celo-purple text-white p-6 border-b-4 border-black flex justify-between items-start">
+              <h3 className="font-serif text-3xl sm:text-4xl leading-tight">
+                Select Your <span className="italic">Nationality</span>
+              </h3>
+              <button
+                onClick={() => setShowSelector(false)}
+                className="text-3xl sm:text-4xl leading-none hover:text-celo-yellow transition-colors"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Country List */}
+            <div className="overflow-y-auto flex-1">
+              {ALL_COUNTRIES.map((country) => (
+                <button
+                  key={country.code}
+                  onClick={() => handleRegister(country.code)}
+                  className="w-full flex items-center gap-4 p-5 sm:p-6 border-b-4 border-black last:border-b-0 hover:bg-celo-yellow transition-colors text-left"
+                >
+                  <div className="text-3xl sm:text-4xl">{country.flag}</div>
+                  <div className="font-sans text-lg sm:text-xl font-bold uppercase tracking-tight">
+                    {country.name}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

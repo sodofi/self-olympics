@@ -48,6 +48,24 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        celo: {
+          yellow: '#FCFF52',
+          forest: '#4E632A',
+          purple: '#1A0329',
+          tan: {
+            light: '#FBF6F1',
+            dark: '#E6E3D5',
+          },
+          brown: '#635949',
+          pink: '#F2A9E7',
+          orange: '#F29E5F',
+          lime: '#B2EBA1',
+          blue: '#8AC0F9',
+        },
+      },
+      fontFamily: {
+        sans: ['var(--font-inter)'],
+        serif: ['var(--font-playfair)'],
       },
       keyframes: {
         "accordion-down": {
