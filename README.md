@@ -57,3 +57,4 @@ This is a monorepo managed by Turborepo with the following structure:
 - [Celo Documentation](https://docs.celo.org/)
 - [Turborepo Documentation](https://turbo.build/repo/docs)
 - [shadcn/ui Documentation](https://ui.shadcn.com/)
+# self-olympics
