@@ -1,45 +1,30 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { SelfVerification } from "@/components/self-verification";
 
-// All available countries for selection
-const ALL_COUNTRIES = [
-  { code: "USA", name: "United States", flag: "🇺🇸" },
-  { code: "BRA", name: "Brazil", flag: "🇧🇷" },
-  { code: "IND", name: "India", flag: "🇮🇳" },
-  { code: "GBR", name: "United Kingdom", flag: "🇬🇧" },
-  { code: "NGA", name: "Nigeria", flag: "🇳🇬" },
-  { code: "MEX", name: "Mexico", flag: "🇲🇽" },
-  { code: "DEU", name: "Germany", flag: "🇩🇪" },
-  { code: "FRA", name: "France", flag: "🇫🇷" },
-  { code: "JPN", name: "Japan", flag: "🇯🇵" },
-  { code: "CAN", name: "Canada", flag: "🇨🇦" },
-  { code: "AUS", name: "Australia", flag: "🇦🇺" },
-  { code: "ZAF", name: "South Africa", flag: "🇿🇦" },
-  { code: "ARG", name: "Argentina", flag: "🇦🇷" },
-  { code: "ESP", name: "Spain", flag: "🇪🇸" },
-  { code: "ITA", name: "Italy", flag: "🇮🇹" },
-  { code: "KOR", name: "South Korea", flag: "🇰🇷" },
-  { code: "CHN", name: "China", flag: "🇨🇳" },
-  { code: "RUS", name: "Russia", flag: "🇷🇺" },
-  { code: "PHL", name: "Philippines", flag: "🇵🇭" },
-  { code: "IDN", name: "Indonesia", flag: "🇮🇩" },
-];
-
-// Helper to get flag emoji for a country code
+// Helper to get flag emoji for a country code (simple mapping)
 const getCountryFlag = (code: string) => {
-  const country = ALL_COUNTRIES.find(c => c.code === code);
-  return country?.flag || "🌍";
+  const flagMap: Record<string, string> = {
+    USA: "🇺🇸", BRA: "🇧🇷", IND: "🇮🇳", GBR: "🇬🇧", NGA: "🇳🇬",
+    MEX: "🇲🇽", DEU: "🇩🇪", FRA: "🇫🇷", JPN: "🇯🇵", CAN: "🇨🇦",
+    AUS: "🇦🇺", ZAF: "🇿🇦", ARG: "🇦🇷", ESP: "🇪🇸", ITA: "🇮🇹",
+    KOR: "🇰🇷", CHN: "🇨🇳", RUS: "🇷🇺", PHL: "🇵🇭", IDN: "🇮🇩",
+  };
+  return flagMap[code] || "🌍";
 };
 
 export default function Home() {
   const [countries, setCountries] = useState<any[]>([]);
   const [isRegistered, setIsRegistered] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-  const [showSelector, setShowSelector] = useState(false);
+  const [showVerification, setShowVerification] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [registering, setRegistering] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [showAlreadyRegisteredPopup, setShowAlreadyRegisteredPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState<string>("");
+  const [popupCountry, setPopupCountry] = useState<string>("");
 
   // Fetch leaderboard on mount
   useEffect(() => {
@@ -68,49 +53,42 @@ export default function Home() {
     }
   };
 
-  // Function to register a country
-  const handleRegister = async (countryCode: string) => {
-    const country = ALL_COUNTRIES.find(c => c.code === countryCode);
-    if (!country) return;
+  // Handle successful Self verification
+  const handleVerificationSuccess = async (data: { countryCode: string; countryName: string; message: string }) => {
+    console.log('🎉 Verification successful:', data);
+    setIsRegistered(true);
+    setSelectedCountry(data.countryCode);
+    setPopupCountry(data.countryName);
+    setPopupMessage(data.message);
+    setShowVerification(false);
+    setShowSuccessPopup(true);
+    
+    // Auto-hide success popup after 5 seconds
+    setTimeout(() => setShowSuccessPopup(false), 5000);
+    
+    // Refresh leaderboard
+    await fetchLeaderboard();
+  };
 
-    setRegistering(true);
-    setError(null);
+  // Handle already registered case
+  const handleAlreadyRegistered = (data: { countryCode: string; countryName: string; message: string }) => {
+    console.log('⚠️ Already registered:', data);
+    setIsRegistered(true);
+    setSelectedCountry(data.countryCode);
+    setPopupCountry(data.countryName);
+    setPopupMessage(data.message);
+    setShowVerification(false);
+    setShowAlreadyRegisteredPopup(true);
+    
+    // Auto-hide popup after 5 seconds
+    setTimeout(() => setShowAlreadyRegisteredPopup(false), 5000);
+  };
 
-    try {
-      console.log('📤 Registering country:', country.name);
-      
-      // Call the register API
-      const response = await fetch('/api/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          countryCode: country.code,
-          countryName: country.name,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        console.log('✅ Registration successful:', data);
-        setIsRegistered(true);
-        setSelectedCountry(countryCode);
-        setShowSelector(false);
-        
-        // Refresh leaderboard to show updated count
-        await fetchLeaderboard();
-      } else {
-        console.error('❌ Registration failed:', data.error);
-        setError(data.error || 'Registration failed');
-      }
-    } catch (err) {
-      console.error('❌ Error registering:', err);
-      setError('Failed to register. Please try again.');
-    } finally {
-      setRegistering(false);
-    }
+  // Handle verification error
+  const handleVerificationError = (errorMessage: string) => {
+    console.error('❌ Verification error:', errorMessage);
+    setError(errorMessage);
+    // Keep modal open so user can try again
   };
 
   if (loading) {
@@ -142,17 +120,15 @@ export default function Home() {
       {/* Register Button Section */}
       <section className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <button
-          onClick={() => !isRegistered && setShowSelector(true)}
-          disabled={isRegistered || registering}
+          onClick={() => !isRegistered && setShowVerification(true)}
+          disabled={isRegistered}
           className={`w-full py-6 sm:py-8 text-xl sm:text-2xl font-sans font-bold tracking-tight transition-all border-4 ${
             isRegistered
               ? 'bg-celo-forest text-white border-celo-forest cursor-not-allowed'
-              : registering
-              ? 'bg-gray-400 text-white border-gray-600 cursor-wait'
               : 'bg-celo-yellow text-black border-black hover:bg-black hover:text-celo-yellow hover:border-celo-yellow'
           }`}
         >
-          {isRegistered ? '✓ REGISTERED' : registering ? 'REGISTERING...' : 'REGISTER YOUR COUNTRY'}
+          {isRegistered ? '✓ REGISTERED' : 'REGISTER YOUR COUNTRY'}
         </button>
 
         {error && (
@@ -208,38 +184,83 @@ export default function Home() {
         )}
       </section>
 
-      {/* Country Selector Modal */}
-      {showSelector && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-celo-tan-light w-full sm:max-w-2xl max-h-[80vh] sm:max-h-[70vh] flex flex-col border-4 border-black sm:rounded-none">
+      {/* Self Verification Modal */}
+      {showVerification && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+          <div className="bg-celo-purple w-full max-w-2xl max-h-[90vh] overflow-y-auto border-4 border-black rounded-lg">
             {/* Header */}
-            <div className="bg-celo-purple text-white p-6 border-b-4 border-black flex justify-between items-start">
-              <h3 className="font-serif text-3xl sm:text-4xl leading-tight">
-                Select Your <span className="italic">Country</span>
+            <div className="p-6 border-b-4 border-black flex justify-between items-start">
+              <h3 className="font-serif text-3xl sm:text-4xl leading-tight text-white">
+                Self <span className="italic">Verification</span>
               </h3>
               <button
-                onClick={() => setShowSelector(false)}
-                className="text-3xl sm:text-4xl leading-none hover:text-celo-yellow transition-colors"
+                onClick={() => {
+                  setShowVerification(false);
+                  setError(null);
+                }}
+                className="text-white text-3xl sm:text-4xl leading-none hover:text-celo-yellow transition-colors"
               >
                 ×
               </button>
             </div>
 
-            {/* Country List */}
-            <div className="overflow-y-auto flex-1">
-              {ALL_COUNTRIES.map((country) => (
-                <button
-                  key={country.code}
-                  onClick={() => handleRegister(country.code)}
-                  disabled={registering}
-                  className="w-full flex items-center gap-4 p-5 sm:p-6 border-b-4 border-black last:border-b-0 hover:bg-celo-yellow transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="text-3xl sm:text-4xl">{country.flag}</div>
-                  <div className="font-sans text-lg sm:text-xl font-bold uppercase tracking-tight">
-                    {country.name}
-                  </div>
-                </button>
-              ))}
+            {/* Self QR Code Component */}
+            <div className="p-4 sm:p-6">
+              <SelfVerification
+                onSuccess={handleVerificationSuccess}
+                onError={handleVerificationError}
+                onAlreadyRegistered={handleAlreadyRegistered}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Popup */}
+      {showSuccessPopup && (
+        <div className="fixed bottom-8 right-8 z-50 max-w-md animate-slide-in">
+          <div className="bg-celo-forest border-4 border-black p-6 shadow-xl">
+            <div className="flex items-start gap-4">
+              <div className="text-4xl">✅</div>
+              <div className="flex-1">
+                <h4 className="font-sans text-xl font-bold text-white mb-2">
+                  Registration Successful!
+                </h4>
+                <p className="font-sans text-white">
+                  Adding <strong>{popupCountry}</strong> to the leaderboard...
+                </p>
+              </div>
+              <button
+                onClick={() => setShowSuccessPopup(false)}
+                className="text-white hover:text-celo-yellow text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Already Registered Popup */}
+      {showAlreadyRegisteredPopup && (
+        <div className="fixed bottom-8 right-8 z-50 max-w-md animate-slide-in">
+          <div className="bg-celo-yellow border-4 border-black p-6 shadow-xl">
+            <div className="flex items-start gap-4">
+              <div className="text-4xl">⚠️</div>
+              <div className="flex-1">
+                <h4 className="font-sans text-xl font-bold text-black mb-2">
+                  Already Registered!
+                </h4>
+                <p className="font-sans text-black">
+                  {popupMessage}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAlreadyRegisteredPopup(false)}
+                className="text-black hover:text-celo-purple text-2xl leading-none"
+              >
+                ×
+              </button>
             </div>
           </div>
         </div>
