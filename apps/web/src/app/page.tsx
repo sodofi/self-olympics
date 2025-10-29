@@ -1,72 +1,128 @@
 "use client";
 
-import { useState } from "react";
-
-// Mock country data with registration counts
-const INITIAL_COUNTRIES = [
-  { code: "US", name: "United States", flag: "🇺🇸", registrations: 1247 },
-  { code: "BR", name: "Brazil", flag: "🇧🇷", registrations: 892 },
-  { code: "IN", name: "India", flag: "🇮🇳", registrations: 756 },
-  { code: "GB", name: "United Kingdom", flag: "🇬🇧", registrations: 634 },
-  { code: "NG", name: "Nigeria", flag: "🇳🇬", registrations: 521 },
-  { code: "MX", name: "Mexico", flag: "🇲🇽", registrations: 487 },
-  { code: "DE", name: "Germany", flag: "🇩🇪", registrations: 423 },
-  { code: "FR", name: "France", flag: "🇫🇷", registrations: 389 },
-  { code: "JP", name: "Japan", flag: "🇯🇵", registrations: 312 },
-  { code: "CA", name: "Canada", flag: "🇨🇦", registrations: 298 },
-];
+import { useState, useEffect } from "react";
 
 // All available countries for selection
 const ALL_COUNTRIES = [
-  { code: "US", name: "United States", flag: "🇺🇸" },
-  { code: "BR", name: "Brazil", flag: "🇧🇷" },
-  { code: "IN", name: "India", flag: "🇮🇳" },
-  { code: "GB", name: "United Kingdom", flag: "🇬🇧" },
-  { code: "NG", name: "Nigeria", flag: "🇳🇬" },
-  { code: "MX", name: "Mexico", flag: "🇲🇽" },
-  { code: "DE", name: "Germany", flag: "🇩🇪" },
-  { code: "FR", name: "France", flag: "🇫🇷" },
-  { code: "JP", name: "Japan", flag: "🇯🇵" },
-  { code: "CA", name: "Canada", flag: "🇨🇦" },
-  { code: "AU", name: "Australia", flag: "🇦🇺" },
-  { code: "ZA", name: "South Africa", flag: "🇿🇦" },
-  { code: "AR", name: "Argentina", flag: "🇦🇷" },
-  { code: "ES", name: "Spain", flag: "🇪🇸" },
-  { code: "IT", name: "Italy", flag: "🇮🇹" },
-  { code: "KR", name: "South Korea", flag: "🇰🇷" },
-  { code: "CN", name: "China", flag: "🇨🇳" },
-  { code: "RU", name: "Russia", flag: "🇷🇺" },
-  { code: "PH", name: "Philippines", flag: "🇵🇭" },
-  { code: "ID", name: "Indonesia", flag: "🇮🇩" },
+  { code: "USA", name: "United States", flag: "🇺🇸" },
+  { code: "BRA", name: "Brazil", flag: "🇧🇷" },
+  { code: "IND", name: "India", flag: "🇮🇳" },
+  { code: "GBR", name: "United Kingdom", flag: "🇬🇧" },
+  { code: "NGA", name: "Nigeria", flag: "🇳🇬" },
+  { code: "MEX", name: "Mexico", flag: "🇲🇽" },
+  { code: "DEU", name: "Germany", flag: "🇩🇪" },
+  { code: "FRA", name: "France", flag: "🇫🇷" },
+  { code: "JPN", name: "Japan", flag: "🇯🇵" },
+  { code: "CAN", name: "Canada", flag: "🇨🇦" },
+  { code: "AUS", name: "Australia", flag: "🇦🇺" },
+  { code: "ZAF", name: "South Africa", flag: "🇿🇦" },
+  { code: "ARG", name: "Argentina", flag: "🇦🇷" },
+  { code: "ESP", name: "Spain", flag: "🇪🇸" },
+  { code: "ITA", name: "Italy", flag: "🇮🇹" },
+  { code: "KOR", name: "South Korea", flag: "🇰🇷" },
+  { code: "CHN", name: "China", flag: "🇨🇳" },
+  { code: "RUS", name: "Russia", flag: "🇷🇺" },
+  { code: "PHL", name: "Philippines", flag: "🇵🇭" },
+  { code: "IDN", name: "Indonesia", flag: "🇮🇩" },
 ];
 
+// Helper to get flag emoji for a country code
+const getCountryFlag = (code: string) => {
+  const country = ALL_COUNTRIES.find(c => c.code === code);
+  return country?.flag || "🌍";
+};
+
 export default function Home() {
-  const [countries, setCountries] = useState(INITIAL_COUNTRIES);
+  const [countries, setCountries] = useState<any[]>([]);
   const [isRegistered, setIsRegistered] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [showSelector, setShowSelector] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [registering, setRegistering] = useState(false);
 
-  const handleRegister = (countryCode: string) => {
+  // Fetch leaderboard on mount
+  useEffect(() => {
+    fetchLeaderboard();
+  }, []);
+
+  // Function to fetch leaderboard from API
+  const fetchLeaderboard = async () => {
+    try {
+      setError(null);
+      const response = await fetch('/api/leaderboard');
+      const data = await response.json();
+      
+      if (data.success) {
+        setCountries(data.leaderboard);
+        console.log('✅ Leaderboard loaded:', data.leaderboard.length, 'countries');
+      } else {
+        setError('Failed to load leaderboard');
+        console.error('❌ Leaderboard error:', data.error);
+      }
+    } catch (err) {
+      console.error('❌ Error fetching leaderboard:', err);
+      setError('Failed to connect to server');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to register a country
+  const handleRegister = async (countryCode: string) => {
     const country = ALL_COUNTRIES.find(c => c.code === countryCode);
     if (!country) return;
 
-    setIsRegistered(true);
-    setSelectedCountry(countryCode);
-    setShowSelector(false);
+    setRegistering(true);
+    setError(null);
 
-    // Update or add country to leaderboard
-    setCountries(prev => {
-      const existing = prev.find(c => c.code === countryCode);
-      if (existing) {
-        return prev
-          .map(c => c.code === countryCode ? { ...c, registrations: c.registrations + 1 } : c)
-          .sort((a, b) => b.registrations - a.registrations);
+    try {
+      console.log('📤 Registering country:', country.name);
+      
+      // Call the register API
+      const response = await fetch('/api/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          countryCode: country.code,
+          countryName: country.name,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log('✅ Registration successful:', data);
+        setIsRegistered(true);
+        setSelectedCountry(countryCode);
+        setShowSelector(false);
+        
+        // Refresh leaderboard to show updated count
+        await fetchLeaderboard();
       } else {
-        const newCountry = { ...country, registrations: 1 };
-        return [...prev, newCountry].sort((a, b) => b.registrations - a.registrations);
+        console.error('❌ Registration failed:', data.error);
+        setError(data.error || 'Registration failed');
       }
-    });
+    } catch (err) {
+      console.error('❌ Error registering:', err);
+      setError('Failed to register. Please try again.');
+    } finally {
+      setRegistering(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-celo-tan-light flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-4 border-black mb-4"></div>
+          <p className="font-sans text-lg font-bold">LOADING LEADERBOARD...</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-celo-tan-light pb-20">
@@ -78,7 +134,7 @@ export default function Home() {
             <span className="block italic">OLYMPICS</span>
           </h1>
           <p className="font-sans text-base sm:text-lg font-medium text-celo-tan-dark max-w-2xl">
-            Which country will have the most humans? Register your nationality and help your country climb the leaderboard.
+            Which country will have the most registrations? Click to register your country and help it climb the leaderboard.
           </p>
         </div>
       </section>
@@ -87,15 +143,23 @@ export default function Home() {
       <section className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <button
           onClick={() => !isRegistered && setShowSelector(true)}
-          disabled={isRegistered}
+          disabled={isRegistered || registering}
           className={`w-full py-6 sm:py-8 text-xl sm:text-2xl font-sans font-bold tracking-tight transition-all border-4 ${
             isRegistered
               ? 'bg-celo-forest text-white border-celo-forest cursor-not-allowed'
+              : registering
+              ? 'bg-gray-400 text-white border-gray-600 cursor-wait'
               : 'bg-celo-yellow text-black border-black hover:bg-black hover:text-celo-yellow hover:border-celo-yellow'
           }`}
         >
-          {isRegistered ? '✓ REGISTERED' : 'REGISTER YOUR NATIONALITY'}
+          {isRegistered ? '✓ REGISTERED' : registering ? 'REGISTERING...' : 'REGISTER YOUR COUNTRY'}
         </button>
+
+        {error && (
+          <div className="mt-4 p-4 bg-red-100 border-4 border-red-600 text-red-800 font-sans font-bold">
+            ⚠️ {error}
+          </div>
+        )}
       </section>
 
       {/* Leaderboard Section */}
@@ -107,35 +171,41 @@ export default function Home() {
           <div className="h-1 w-24 bg-black"></div>
         </div>
 
-        <div className="space-y-0 border-4 border-black">
-          {countries.map((country, index) => (
-            <div
-              key={country.code}
-              className={`flex items-center justify-between p-4 sm:p-6 border-b-4 border-black last:border-b-0 transition-colors ${
-                selectedCountry === country.code
-                  ? 'bg-celo-yellow'
-                  : index % 2 === 0
-                  ? 'bg-white'
-                  : 'bg-celo-tan-dark'
-              }`}
-            >
-              <div className="flex items-center gap-3 sm:gap-6 flex-1 min-w-0">
-                <div className="text-3xl sm:text-4xl font-sans font-black w-12 sm:w-16 flex-shrink-0">
-                  {index + 1}
+        {countries.length === 0 ? (
+          <div className="border-4 border-black bg-white p-8 text-center">
+            <p className="font-sans text-xl font-bold">No countries registered yet. Be the first!</p>
+          </div>
+        ) : (
+          <div className="space-y-0 border-4 border-black">
+            {countries.map((country, index) => (
+              <div
+                key={country.countryCode}
+                className={`flex items-center justify-between p-4 sm:p-6 border-b-4 border-black last:border-b-0 transition-colors ${
+                  selectedCountry === country.countryCode
+                    ? 'bg-celo-yellow'
+                    : index % 2 === 0
+                    ? 'bg-white'
+                    : 'bg-celo-tan-dark'
+                }`}
+              >
+                <div className="flex items-center gap-3 sm:gap-6 flex-1 min-w-0">
+                  <div className="text-3xl sm:text-4xl font-sans font-black w-12 sm:w-16 flex-shrink-0">
+                    {index + 1}
+                  </div>
+                  <div className="text-3xl sm:text-4xl flex-shrink-0">
+                    {getCountryFlag(country.countryCode)}
+                  </div>
+                  <div className="font-sans text-base sm:text-xl font-bold uppercase tracking-tight truncate">
+                    {country.countryName}
+                  </div>
                 </div>
-                <div className="text-3xl sm:text-4xl flex-shrink-0">
-                  {country.flag}
-                </div>
-                <div className="font-sans text-base sm:text-xl font-bold uppercase tracking-tight truncate">
-                  {country.name}
+                <div className="text-2xl sm:text-4xl font-sans font-black flex-shrink-0 ml-4">
+                  {country.count.toLocaleString()}
                 </div>
               </div>
-              <div className="text-2xl sm:text-4xl font-sans font-black flex-shrink-0 ml-4">
-                {country.registrations.toLocaleString()}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Country Selector Modal */}
@@ -145,7 +215,7 @@ export default function Home() {
             {/* Header */}
             <div className="bg-celo-purple text-white p-6 border-b-4 border-black flex justify-between items-start">
               <h3 className="font-serif text-3xl sm:text-4xl leading-tight">
-                Select Your <span className="italic">Nationality</span>
+                Select Your <span className="italic">Country</span>
               </h3>
               <button
                 onClick={() => setShowSelector(false)}
@@ -161,7 +231,8 @@ export default function Home() {
                 <button
                   key={country.code}
                   onClick={() => handleRegister(country.code)}
-                  className="w-full flex items-center gap-4 p-5 sm:p-6 border-b-4 border-black last:border-b-0 hover:bg-celo-yellow transition-colors text-left"
+                  disabled={registering}
+                  className="w-full flex items-center gap-4 p-5 sm:p-6 border-b-4 border-black last:border-b-0 hover:bg-celo-yellow transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="text-3xl sm:text-4xl">{country.flag}</div>
                   <div className="font-sans text-lg sm:text-xl font-bold uppercase tracking-tight">
